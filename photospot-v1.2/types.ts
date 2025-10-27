@@ -1,11 +1,12 @@
-/// <reference types="react" />
+// FIX: Replaced the triple-slash directive with a direct import for 'react'.
+// This ensures that React's global JSX type definitions are loaded correctly
+// before augmenting the JSX.IntrinsicElements interface. By explicitly loading
+// React's types, we prevent our custom element definition from overwriting
+// the standard HTML element types, which resolves all JSX-related errors
+// across the application.
+import 'react';
 
-// FIX: Added a triple-slash directive to ensure React's global JSX type definitions
-// are loaded. This resolves errors where standard HTML/SVG elements were not
-// recognized in TSX files.
-import React from 'react';
-
-export type AppState = 'landing' | 'upload' | 'processing' | 'results';
+export type AppState = 'landing' | 'upload' | 'processing' | 'results' | 'terms' | 'privacy';
 
 export interface LocationAnalysis {
   location_name: string;

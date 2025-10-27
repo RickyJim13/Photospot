@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { AppState, LocationAnalysis } from './types';
 import LandingScreen from './components/LandingScreen';
@@ -6,6 +7,8 @@ import UploadScreen from './components/UploadScreen';
 import ProcessingScreen from './components/ProcessingScreen';
 import ResultsScreen from './components/ResultsScreen';
 import Footer from './components/Footer';
+import TermsOfService from './components/TermsOfService';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import { analyzeImageForLocation } from './services/geminiService';
 import { trackEvent } from './services/analytics';
 
@@ -13,11 +16,13 @@ const CREDITS_STORAGE_KEY = 'photospotCredits';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('landing');
+  const [previousAppState, setPreviousAppState] = useState<AppState>('landing');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<LocationAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [credits, setCredits] = useState<number>(0);
+  const [creditConsumed, setCreditConsumed] = useState<boolean | null>(null);
 
   useEffect(() => {
     trackEvent('page_view'); // Track initial page load
@@ -77,10 +82,28 @@ const App: React.FC = () => {
       const result = await analyzeImageForLocation(base64Image, mimeType);
       setAnalysisResult(result);
       setAppState('results');
+      
+      let creditWasConsumed = false;
       if (consumeCredit) {
-        useCredit();
+        // User upload flow
+        if (result.confidence >= 0.8) {
+          useCredit();
+          setCreditConsumed(true);
+          creditWasConsumed = true;
+        } else {
+          // Low confidence, free analysis for user
+          setCreditConsumed(false);
+        }
+      } else {
+        // Example photo flow - always free, credit system not applicable
+        setCreditConsumed(null);
       }
-      trackEvent('analysis_success', { location_name: result.location_name, confidence: result.confidence });
+
+      trackEvent('analysis_success', { 
+        location_name: result.location_name, 
+        confidence: result.confidence,
+        credit_consumed: creditWasConsumed
+      });
     } catch (e: any) {
       console.error(e);
       let errorMessage = "An unknown error occurred. Please try again.";
@@ -149,23 +172,52 @@ const App: React.FC = () => {
     setImageSrc(null);
     setAnalysisResult(null);
     setError(null);
+    setCreditConsumed(null);
   };
+  
+  const handleBackToHome = () => {
+    setError(null);
+    setAppState('landing');
+  };
+  
+  const handleShowTerms = () => {
+    if (appState !== 'terms' && appState !== 'privacy') {
+      setPreviousAppState(appState);
+    }
+    setAppState('terms');
+  };
+
+  const handleShowPrivacy = () => {
+    if (appState !== 'terms' && appState !== 'privacy') {
+      setPreviousAppState(appState);
+    }
+    setAppState('privacy');
+  };
+  
+  const handleBackFromLegal = () => {
+    setAppState(previousAppState);
+  };
+
 
   const renderContent = () => {
     switch (appState) {
       case 'landing':
         return <LandingScreen onStart={() => setAppState('upload')} onSelectExample={handleSelectExample} isLoading={isLoading} />;
       case 'upload':
-        return <UploadScreen onFindSpot={handleFindSpot} onSelectExample={handleSelectExample} isLoading={isLoading} error={error} credits={credits} />;
+        return <UploadScreen onFindSpot={handleFindSpot} onSelectExample={handleSelectExample} isLoading={isLoading} error={error} credits={credits} onBack={handleBackToHome} />;
       case 'processing':
         return <ProcessingScreen />;
       case 'results':
         if (imageSrc && analysisResult) {
-          return <ResultsScreen imageSrc={imageSrc} analysisResult={analysisResult} onTryAnother={handleTryAnother} />;
+          return <ResultsScreen imageSrc={imageSrc} analysisResult={analysisResult} onTryAnother={handleTryAnother} creditConsumed={creditConsumed} />;
         }
         // Fallback to upload if results are not available
         setAppState('upload');
         return null;
+      case 'terms':
+        return <TermsOfService onBack={handleBackFromLegal} />;
+      case 'privacy':
+        return <PrivacyPolicy onBack={handleBackFromLegal} />;
       default:
         return <LandingScreen onStart={() => setAppState('upload')} onSelectExample={handleSelectExample} isLoading={isLoading} />;
     }
@@ -176,7 +228,7 @@ const App: React.FC = () => {
        <main className="flex-grow flex flex-col justify-center items-center">
          {renderContent()}
        </main>
-      <Footer />
+      <Footer onShowTerms={handleShowTerms} onShowPrivacy={handleShowPrivacy} />
     </div>
   );
 };
