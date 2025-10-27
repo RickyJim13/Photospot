@@ -1,5 +1,0 @@
-{
-  "name": "Photospot V1.3",
-  "description": "An AI-powered web app that lets users upload a photo or paste an image URL to discover the exact location where it was taken. It provides the location name, GPS coordinates, a confidence score, and a direct link to Google Maps.",
-  "requestFramePermissions": []
-}
